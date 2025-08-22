@@ -1,24 +1,28 @@
 # Self-Evolving Conversational RAG for Data Governance
 
-A production-ready prototype implementing an end-to-end RAG pipeline for data governance queries with automated experiment tuning for retriever weights and prompt templates.
+A production-oriented RAG system for data-governance Q&A that ensembles dense, sparse, and metadata-aware retrievers, performs HyDE-style hypothesis expansion, and applies a critic to reduce hallucinations and flag sensitivity. It includes an offline experiment harness to tune retriever weights and prompt variants, plus observability and reproducible Docker workflows.
 
 ## Features
 
-- **Multi-Modal Retrieval**: Dense (FAISS), sparse (BM25), and metadata-based retrievers with ensemble scoring
-- **HyDE Integration**: Hypothesis-driven document enhancement for improved retrieval
-- **Critic Model**: Hallucination detection and sensitivity scoring
-- **A/B Experiment Engine**: Automated evaluation of retrieval strategies
-- **Observability**: Comprehensive telemetry and dashboard
-- **Production Ready**: Docker containerization and API endpoints
+- **Ensembled Retrieval**: Dense (FAISS+SentenceTransformers), Sparse (BM25), and Metadata-graph retrievers with weighted late fusion.
+- **HyDE Expansion**: Generates k synthetic hypotheses to expand queries and improve recall.
+- **Critic Model**: Heuristic/ML critic scoring responses for hallucination risk, sensitivity exposure, and factuality.
+- **Experiment Harness**: A/B runner for weights/prompt variants; logs Precision@k, critic-based factuality, simulated satisfaction, and latency.
+- **Observability**: NDJSON telemetry per request; CSV/plots + static dashboard summarizing experiments.
+- **Production Concerns**: Docker image, FastAPI server, generated synthetic dataset, configurable LLM backends.
 
 ## Tech Stack
 
-- **Vector Store**: FAISS for dense embeddings
-- **Sparse Retriever**: BM25 implementation
-- **Orchestration**: LangChain for pipeline management
-- **LLM**: Configurable (local HuggingFace models or remote APIs)
-- **API**: FastAPI for production endpoints
-- **Data**: Synthetic governance datasets (no real PII)
+- **Vector Store**: FAISS (CPU) with SentenceTransformers embeddings (default: `all-MiniLM-L6-v2`).
+- **Sparse Retriever**: Rank-BM25 (Okapi) over normalized tokens.
+- **Orchestration**: Minimal composition + LangChain vectorstore interface.
+- **LLM**: Local HF model (configurable), or remote API via `config.py` toggles.
+- **API**: FastAPI + Uvicorn.
+- **Data**: Synthetic governance dataset generator (schemas, lineage, ownership). No real PII.
+
+### Architecture Overview
+- Query → optional HyDE hypotheses → retrievers (dense/sparse/metadata) → weighted fusion → top-k docs → lightweight answer synthesis → critic → response + telemetry.
+- Metadata retriever indexes graph-like keys: `type`, `table_id`, `owner_id`, `owner_department`, enabling routing for governance intents (ownership, lineage, compliance).
 
 ## Quick Start
 
@@ -38,7 +42,7 @@ cd self-evolving-conversational-rag
 # Build Docker image
 docker build -t rag-governance .
 
-# Run the complete demo
+# Run the complete demo (build → data → tests → experiments → server check → artifact)
 ./demo.sh
 ```
 
@@ -48,34 +52,34 @@ docker build -t rag-governance .
 # Install dependencies
 pip install -r requirements.txt
 
-# Generate synthetic data
+# Generate synthetic data (documents.json, test_queries.json)
 python scripts/generate_data.py
 
-# Run tests
-pytest tests/
+# Run tests (unit + integration)
+pytest -q
 
 # Start the API server
 python server/main.py
 
-# Run experiments
+# Run experiments (A/B; logs CSV + plots)
 python experiment.py
 ```
 
 ## Project Structure
 
 ```
-├── retrieve.py          # Multi-modal retrieval system
-├── hyde.py             # Hypothesis-driven enhancement
-├── critic.py           # Hallucination and sensitivity critic
-├── experiment.py       # A/B testing engine
-├── server/             # FastAPI server
-├── tests/              # Unit tests and evaluation suite
-├── scripts/            # Data generation and utilities
-├── dashboard/          # Static HTML dashboard
-├── artifacts/          # Generated logs and results
-├── Dockerfile          # Container configuration
-├── requirements.txt    # Python dependencies
-└── demo.sh            # Complete demo script
+├── retrieve.py          # Dense(BERT)+FAISS, BM25, metadata retrievers + ensemble
+├── hyde.py              # HyDE hypotheses generation and retrieval integration
+├── critic.py            # Hallucination/factuality/sensitivity critic
+├── experiment.py        # A/B runner, metrics, CSV outputs and plots
+├── server/              # FastAPI service exposing /chat and experiment endpoints
+├── scripts/             # Synthetic data generator
+├── tests/               # Unit & integration tests; offline evaluation suite
+├── dashboard/           # Static HTML dashboard for experiment summaries
+├── artifacts/           # Telemetry (.ndjson), CSV, plots, experiment logs
+├── Dockerfile           # Reproducible container
+├── requirements.txt     # Dependencies (CPU-friendly)
+└── demo.sh              # E2E demo/build/packaging
 ```
 
 ## API Endpoints
@@ -94,11 +98,16 @@ POST /chat
 GET /experiments/{experiment_id}/results
 ```
 
+Additional endpoints:
+- `GET /health` – component readiness and version
+- `GET /experiments` – list aggregated experiment runs
+- `GET /telemetry` – last N NDJSON entries
+
 ## Dashboard
 
 After running experiments, view results at `dashboard/index.html`:
-- Precision@k metrics
-- Critic agreement rates
+- Precision@k (5/10)
+- Critic agreement and safety
 - Latency percentiles
 - A/B comparison charts
 
@@ -106,22 +115,22 @@ After running experiments, view results at `dashboard/index.html`:
 
 ### LLM Configuration
 Set in `config.py`:
-- `LOCAL_MODEL`: HuggingFace model name for local inference
-- `REMOTE_API_KEY`: API key for remote LLM services
-- `REMOTE_ENDPOINT`: Remote API endpoint URL
+- `LOCAL_MODEL` – HuggingFace model name for local inference
+- `USE_LOCAL` – toggle local vs remote
+- `REMOTE_MODEL`, `REMOTE_ENDPOINT`, `REMOTE_API_KEY` – optional remote config
 
-### Retriever Weights
-Tune in `experiment.py`:
-- Dense retriever weight
-- Sparse retriever weight  
-- Metadata retriever weight
+### Retriever & HyDE
+- `RetrieverConfig`: `DENSE_MODEL`, `*_TOP_K`, weights, `ENSEMBLE_TOP_K`, `MIN_SCORE_THRESHOLD`.
+- `HyDEConfig`: enable/disable, `HYPOTHESIS_COUNT`, `HYPOTHESIS_LENGTH`, `ENHANCEMENT_WEIGHT`.
+
+Tune weights and prompts via `experiment.py`.
 
 ## Evaluation Metrics
 
-- **Precision@k**: Top-k retrieval accuracy
-- **Factuality**: Critic model agreement
-- **User Satisfaction**: Simulated user feedback
-- **Latency**: P95 response times
+- **Precision@k (5/10)**: Fraction of retrieved docs matching gold per query.
+- **Factuality (critic)**: Proxy grounding/safety via the critic.
+- **User Satisfaction (simulated)**: Heuristic of relevance × safety.
+- **Latency**: Mean and P95 for retrieval and E2E.
 
 ## Artifacts
 
