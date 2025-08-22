@@ -1,0 +1,22 @@
+[
+  "Who owns the product table?",
+  "What tables contain transactional information?",
+  "What GDPR requirements apply to sensitive?",
+  "How is personal data aggregated?",
+  "Which Marketing tables have masked?",
+  "What HIPAA requirements apply to analytical?",
+  "What is the access frequency of product tables?",
+  "Who owns the financial table?",
+  "What is the size of financial tables?",
+  "What tables contain transactional information?",
+  "Which tables are encrypted?",
+  "How is audit data transformed?",
+  "Which Marketing tables have masked?",
+  "Show me lineage for analytics",
+  "Which Engineering tables have masked?",
+  "Who owns the transaction table?",
+  "Show me data lineage for operational data",
+  "What CCPA requirements apply to personal?",
+  "What tables contain audit information?",
+  "What PCI requirements apply to transactional?"
+]

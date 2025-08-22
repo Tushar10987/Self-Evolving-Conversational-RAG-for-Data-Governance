@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Evolving Conversational RAG Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-change {
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .positive { color: #27ae60; }
+        .negative { color: #e74c3c; }
+
+        .charts-section {
+            padding: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .chart-title {
+            font-size: 1.5em;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .strategy-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .strategy-title {
+            font-size: 1.3em;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .strategy-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .strategy-metric {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .strategy-metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .strategy-metric-label {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #7f8c8d;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Self-Evolving Conversational RAG</h1>
+            <p>Data Governance Query System Dashboard</p>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="avg-critic-score">0.75</div>
+                <div class="metric-label">Average Critic Score</div>
+                <div class="metric-change positive" id="critic-change">+12.5%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="avg-precision">0.82</div>
+                <div class="metric-label">Precision@5</div>
+                <div class="metric-change positive" id="precision-change">+8.3%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="avg-satisfaction">0.78</div>
+                <div class="metric-label">User Satisfaction</div>
+                <div class="metric-change positive" id="satisfaction-change">+15.2%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="p95-latency">1.2s</div>
+                <div class="metric-label">P95 Latency</div>
+                <div class="metric-change negative" id="latency-change">+5.1%</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="comparison-grid">
+                <div class="strategy-card">
+                    <div class="strategy-title">Baseline Strategy</div>
+                    <div class="strategy-metrics">
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="baseline-critic">0.72</div>
+                            <div class="strategy-metric-label">Critic Score</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="baseline-precision">0.76</div>
+                            <div class="strategy-metric-label">Precision@5</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="baseline-satisfaction">0.68</div>
+                            <div class="strategy-metric-label">Satisfaction</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="baseline-latency">1.1s</div>
+                            <div class="strategy-metric-label">Avg Latency</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="strategy-card">
+                    <div class="strategy-title">Tuned Strategy</div>
+                    <div class="strategy-metrics">
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="tuned-critic">0.81</div>
+                            <div class="strategy-metric-label">Critic Score</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="tuned-precision">0.82</div>
+                            <div class="strategy-metric-label">Precision@5</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="tuned-satisfaction">0.78</div>
+                            <div class="strategy-metric-label">Satisfaction</div>
+                        </div>
+                        <div class="strategy-metric">
+                            <div class="strategy-metric-value" id="tuned-latency">1.2s</div>
+                            <div class="strategy-metric-label">Avg Latency</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Performance Comparison</div>
+                <canvas id="performanceChart" width="400" height="200"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Retriever Weights Distribution</div>
+                <div id="weightsChart"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Latency Distribution</div>
+                <div id="latencyChart"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <button class="btn btn-primary" onclick="loadLatestData()">Refresh Data</button>
+                <button class="btn btn-success" onclick="runNewExperiment()">Run New Experiment</button>
+                <button class="btn btn-primary" onclick="exportResults()">Export Results</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data - in real implementation, this would come from the API
+        const sampleData = {
+            baseline: {
+                critic_score: 0.72,
+                precision_at_5: 0.76,
+                user_satisfaction: 0.68,
+                avg_latency: 1.1,
+                retriever_weights: { dense: 0.4, sparse: 0.3, metadata: 0.3 }
+            },
+            tuned: {
+                critic_score: 0.81,
+                precision_at_5: 0.82,
+                user_satisfaction: 0.78,
+                avg_latency: 1.2,
+                retriever_weights: { dense: 0.5, sparse: 0.25, metadata: 0.25 }
+            }
+        };
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
+
+        function loadDashboard() {
+            updateMetrics();
+            createPerformanceChart();
+            createWeightsChart();
+            createLatencyChart();
+        }
+
+        function updateMetrics() {
+            // Calculate averages
+            const avgCritic = (sampleData.baseline.critic_score + sampleData.tuned.critic_score) / 2;
+            const avgPrecision = (sampleData.baseline.precision_at_5 + sampleData.tuned.precision_at_5) / 2;
+            const avgSatisfaction = (sampleData.baseline.user_satisfaction + sampleData.tuned.user_satisfaction) / 2;
+            const p95Latency = Math.max(sampleData.baseline.avg_latency, sampleData.tuned.avg_latency) * 1.1;
+
+            // Update metric cards
+            document.getElementById('avg-critic-score').textContent = avgCritic.toFixed(2);
+            document.getElementById('avg-precision').textContent = avgPrecision.toFixed(2);
+            document.getElementById('avg-satisfaction').textContent = avgSatisfaction.toFixed(2);
+            document.getElementById('p95-latency').textContent = p95Latency.toFixed(1) + 's';
+
+            // Calculate changes
+            const criticChange = ((sampleData.tuned.critic_score - sampleData.baseline.critic_score) / sampleData.baseline.critic_score * 100).toFixed(1);
+            const precisionChange = ((sampleData.tuned.precision_at_5 - sampleData.baseline.precision_at_5) / sampleData.baseline.precision_at_5 * 100).toFixed(1);
+            const satisfactionChange = ((sampleData.tuned.user_satisfaction - sampleData.baseline.user_satisfaction) / sampleData.baseline.user_satisfaction * 100).toFixed(1);
+            const latencyChange = ((sampleData.tuned.avg_latency - sampleData.baseline.avg_latency) / sampleData.baseline.avg_latency * 100).toFixed(1);
+
+            // Update change indicators
+            document.getElementById('critic-change').textContent = `+${criticChange}%`;
+            document.getElementById('precision-change').textContent = `+${precisionChange}%`;
+            document.getElementById('satisfaction-change').textContent = `+${satisfactionChange}%`;
+            document.getElementById('latency-change').textContent = `+${latencyChange}%`;
+
+            // Update strategy cards
+            document.getElementById('baseline-critic').textContent = sampleData.baseline.critic_score.toFixed(2);
+            document.getElementById('baseline-precision').textContent = sampleData.baseline.precision_at_5.toFixed(2);
+            document.getElementById('baseline-satisfaction').textContent = sampleData.baseline.user_satisfaction.toFixed(2);
+            document.getElementById('baseline-latency').textContent = sampleData.baseline.avg_latency.toFixed(1) + 's';
+
+            document.getElementById('tuned-critic').textContent = sampleData.tuned.critic_score.toFixed(2);
+            document.getElementById('tuned-precision').textContent = sampleData.tuned.precision_at_5.toFixed(2);
+            document.getElementById('tuned-satisfaction').textContent = sampleData.tuned.user_satisfaction.toFixed(2);
+            document.getElementById('tuned-latency').textContent = sampleData.tuned.avg_latency.toFixed(1) + 's';
+        }
+
+        function createPerformanceChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Critic Score', 'Precision@5', 'User Satisfaction'],
+                    datasets: [{
+                        label: 'Baseline',
+                        data: [
+                            sampleData.baseline.critic_score,
+                            sampleData.baseline.precision_at_5,
+                            sampleData.baseline.user_satisfaction
+                        ],
+                        backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Tuned',
+                        data: [
+                            sampleData.tuned.critic_score,
+                            sampleData.tuned.precision_at_5,
+                            sampleData.tuned.user_satisfaction
+                        ],
+                        backgroundColor: 'rgba(39, 174, 96, 0.8)',
+                        borderColor: 'rgba(39, 174, 96, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createWeightsChart() {
+            const baselineWeights = sampleData.baseline.retriever_weights;
+            const tunedWeights = sampleData.tuned.retriever_weights;
+
+            const data = [
+                {
+                    values: Object.values(baselineWeights),
+                    labels: Object.keys(baselineWeights).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+                    name: 'Baseline',
+                    type: 'pie',
+                    domain: { row: 0, column: 0 },
+                    marker: { colors: ['#3498db', '#e74c3c', '#f39c12'] }
+                },
+                {
+                    values: Object.values(tunedWeights),
+                    labels: Object.keys(tunedWeights).map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+                    name: 'Tuned',
+                    type: 'pie',
+                    domain: { row: 0, column: 1 },
+                    marker: { colors: ['#27ae60', '#e74c3c', '#f39c12'] }
+                }
+            ];
+
+            const layout = {
+                grid: { rows: 1, columns: 2, pattern: 'independent' },
+                title: 'Retriever Weights Comparison'
+            };
+
+            Plotly.newPlot('weightsChart', data, layout);
+        }
+
+        function createLatencyChart() {
+            // Generate sample latency data
+            const baselineLatencies = Array.from({length: 100}, () => 
+                sampleData.baseline.avg_latency + (Math.random() - 0.5) * 0.4
+            );
+            const tunedLatencies = Array.from({length: 100}, () => 
+                sampleData.tuned.avg_latency + (Math.random() - 0.5) * 0.4
+            );
+
+            const data = [
+                {
+                    x: baselineLatencies,
+                    type: 'histogram',
+                    name: 'Baseline',
+                    opacity: 0.7,
+                    marker: { color: '#3498db' }
+                },
+                {
+                    x: tunedLatencies,
+                    type: 'histogram',
+                    name: 'Tuned',
+                    opacity: 0.7,
+                    marker: { color: '#27ae60' }
+                }
+            ];
+
+            const layout = {
+                title: 'Latency Distribution',
+                xaxis: { title: 'Latency (seconds)' },
+                yaxis: { title: 'Frequency' },
+                barmode: 'overlay'
+            };
+
+            Plotly.newPlot('latencyChart', data, layout);
+        }
+
+        function loadLatestData() {
+            // In real implementation, this would fetch data from the API
+            console.log('Loading latest data...');
+            // Simulate API call
+            setTimeout(() => {
+                alert('Data refreshed successfully!');
+            }, 1000);
+        }
+
+        function runNewExperiment() {
+            // In real implementation, this would trigger a new experiment
+            console.log('Running new experiment...');
+            alert('New experiment started! Check back in a few minutes for results.');
+        }
+
+        function exportResults() {
+            // In real implementation, this would export the current results
+            console.log('Exporting results...');
+            const dataStr = JSON.stringify(sampleData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'rag-experiment-results.json';
+            link.click();
+        }
+    </script>
+</body>
+</html> 

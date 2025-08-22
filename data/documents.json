@@ -1,0 +1,21 @@
+[
+  {
+    "id": "doc1",
+    "content": "Alice Smith (Data Engineer) in Engineering department is the primary_owner of table customer_data",
+    "metadata": {
+      "type": "ownership",
+      "owner_name": "Alice Smith",
+      "owner_department": "Engineering",
+      "table_name": "customer_data"
+    }
+  },
+  {
+    "id": "doc2",
+    "content": "Table customer_data in schema public contains 50000 rows. Table containing customer information",
+    "metadata": {
+      "type": "table",
+      "table_name": "customer_data",
+      "row_count": 50000
+    }
+  }
+]
